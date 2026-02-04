@@ -1,68 +1,47 @@
-import SwiftUI
+import Foundation
 import Combine
 
 class WeatherViewModel: ObservableObject {
-
     @Published var weather: WeatherResponse?
-    @Published var city: String = "Almaty"
-    @Published var errorMessage: String?
-    @Published var unit: String = "metric"
-    @Published var forecast: [ForecastResponse] = [] // Store the 3-day forecast
-
-    private let manager = WeatherManager()
-
-    // Fetch current weather
-    func fetchWeather() {
-        manager.fetchWeather(for: city, unit: unit) { [weak self] result in
-            DispatchQueue.main.async {  // Ensure UI updates happen on the main thread
-                if let result = result {
-                    self?.weather = result
-                    self?.errorMessage = nil
-                } else {
-                    self?.weather = nil
-                    self?.errorMessage = "City not found or API error"
-                }
-            }
-        }
-    }
+    @Published var forecast: [ForecastResponse] = []
+    @Published var errorMessage: String? = nil
     
-    // Fetch 3-day forecast and filter data to show only one entry per day
-    func fetchForecast() {
-        manager.fetchForecast(for: city, unit: unit) { [weak self] forecastData in
-            DispatchQueue.main.async {  // Ensure UI updates happen on the main thread
-                if let forecastData = forecastData {
-                    // Filter the forecast data to include only one entry per day (average)
-                    let filteredForecast = self?.filterForecastData(forecastData)
-                    self?.forecast = filteredForecast ?? []
-                    self?.errorMessage = nil
-                } else {
-                    self?.forecast = []
-                    self?.errorMessage = "Unable to fetch forecast data"
-                }
-            }
-        }
-    }
+    // Bindings for the View
+    @Published var city: String = ""
+    @Published var unit: String = "metric"
 
-    // Filter the forecast data to show one entry per day (next 3 days)
-    private func filterForecastData(_ forecastData: [ForecastResponse]) -> [ForecastResponse] {
-        var uniqueDates: Set<String> = Set()
-        var filteredForecast: [ForecastResponse] = []
+    private let weatherManager = WeatherManager()
 
-        // Loop through the forecast data and pick one entry per day
-        for forecast in forecastData {
-            let date = String(forecast.dt_txt.prefix(10))  // Get only the date part (yyyy-MM-dd)
-            
-            if !uniqueDates.contains(date) {
-                uniqueDates.insert(date)  // Ensure unique dates
-                filteredForecast.append(forecast)
-                
-                // Stop after getting 3 days of forecast
-                if filteredForecast.count == 3 {
-                    break
-                }
-            }
+    func fetchAllData() {
+        guard !city.isEmpty else {
+            self.errorMessage = "Please enter a city name."
+            return
         }
         
-        return filteredForecast
+        weatherManager.fetchWeather(for: city, unit: unit) { [weak self] data in
+            if let data = data {
+                self?.weather = data
+                self?.errorMessage = nil
+                self?.weatherManager.saveWeatherData(data)
+            } else {
+                self?.errorMessage = "City not found."
+            }
+        }
+
+        weatherManager.fetchForecast(for: city, unit: unit) { [weak self] data in
+            if let data = data {
+                self?.forecast = data
+                self?.weatherManager.saveForecastData(data)
+            }
+        }
+    }
+
+    func loadCache() {
+        if let cachedWeather = weatherManager.loadWeatherData() {
+            self.weather = cachedWeather
+        }
+        if let cachedForecast = weatherManager.loadForecastData() {
+            self.forecast = cachedForecast
+        }
     }
 }
