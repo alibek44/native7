@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleIdentifier</key>
+	<string></string>
+	<key>Executable name</key>
+	<string></string>
+	<key>CFBundleName</key>
+	<string></string>
+	<key>CFBundleExecutable</key>
+	<string></string>
+	<key>OPENWEATHER_API_KEY</key>
+	<string>87a24670865e225c4848cee299357911</string>
+</dict>
+</plist>
