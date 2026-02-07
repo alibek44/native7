@@ -12,6 +12,20 @@ class FirebaseManager: ObservableObject {
     init() {
         signIn()
     }
+    // Add to FirebaseManager class
+    @Published var favoriteWeather: [String: WeatherResponse] = [:]
+
+    func fetchWeatherForFavorites(weatherManager: WeatherManager, unit: String) {
+        for fav in favorites {
+            weatherManager.fetchWeather(for: fav.cityName, unit: unit) { [weak self] data in
+                if let data = data {
+                    DispatchQueue.main.async {
+                        self?.favoriteWeather[fav.id] = data
+                    }
+                }
+            }
+        }
+    }
     
     // Auth Requirement: Anonymous Authentication [cite: 22]
     func signIn() {
@@ -81,5 +95,21 @@ class FirebaseManager: ObservableObject {
     func deleteFavorite(id: String) {
         guard let uid = userId else { return }
         db.child("favorites").child(uid).child(id).removeValue()
+    }
+    // CRUD: Update an existing favorite's note [cite: 23, 29]
+    func updateFavoriteNote(id: String, newNote: String) {
+        guard let uid = userId else { return }
+        
+        // Reference the specific favorite item using its unique ID
+        let ref = db.child("favorites").child(uid).child(id)
+        
+        // Update only the 'note' field in the cloud
+        ref.updateChildValues(["note": newNote]) { error, _ in
+            if let error = error {
+                print("Update Error: \(error.localizedDescription)")
+            } else {
+                print("Successfully updated note in Cloud!")
+            }
+        }
     }
 }

@@ -2,13 +2,15 @@ import SwiftUI
 
 struct ContentView: View {
     @StateObject private var viewModel = WeatherViewModel()
-    @StateObject private var fbManager = FirebaseManager() // Firebase logic
-    @State private var favoriteNote: String = "" // Local state for the note field
+    @StateObject private var fbManager = FirebaseManager()
+    @State private var favoriteNote: String = ""
     
+    // Track which favorite is currently in "Edit Mode"
+    @State private var editingFavoriteId: String? = nil
+
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
-                // 1. Offline Label (Assignment 7 requirement)
                 if viewModel.isOffline {
                     Label("Offline Mode", systemImage: "wifi.slash")
                         .font(.caption).bold()
@@ -20,7 +22,7 @@ struct ContentView: View {
 
                 ScrollView {
                     VStack(spacing: 20) {
-                        // 2. Search Bar
+                        // Search Bar
                         HStack {
                             TextField("Enter city", text: $viewModel.city)
                                 .textFieldStyle(RoundedBorderTextFieldStyle())
@@ -39,7 +41,7 @@ struct ContentView: View {
                         .pickerStyle(SegmentedPickerStyle())
                         .padding(.horizontal)
 
-                        // 3. Current Weather & Add to Favorites
+                        // Current Weather & Save Section
                         if let weather = viewModel.weather {
                             VStack(spacing: 15) {
                                 VStack {
@@ -51,30 +53,36 @@ struct ContentView: View {
                                     }
                                 }
                                 
-                                // Assignment 8: Firebase Integration Section
                                 VStack(spacing: 10) {
                                     TextField("Add a note (e.g. Best season)", text: $favoriteNote)
                                         .textFieldStyle(RoundedBorderTextFieldStyle())
-                                        .padding(.horizontal)
                                     
                                     Button(action: {
                                         fbManager.addFavorite(cityName: weather.name, note: favoriteNote)
-                                        favoriteNote = "" // Clear field after saving
+                                        favoriteNote = ""
                                     }) {
                                         Label("Save to Firebase Favorites", systemImage: "star.fill")
                                             .padding(10)
-                                            .background(Color.blue)
+                                            .frame(maxWidth: .infinity)
+                                            .background(fbManager.userId == nil ? Color.gray : Color.blue)
                                             .foregroundColor(.white)
                                             .cornerRadius(8)
+                                    }
+                                    .disabled(fbManager.userId == nil)
+                                    
+                                    if fbManager.userId == nil {
+                                        Text("Connecting to Firebase...")
+                                            .font(.caption).foregroundColor(.gray)
                                     }
                                 }
                                 .padding()
                                 .background(Color.blue.opacity(0.05))
                                 .cornerRadius(12)
                             }
+                            .padding(.horizontal)
                         }
 
-                        // 4. Forecast Section
+                        // Forecast Section
                         if !viewModel.forecast.isEmpty {
                             VStack(alignment: .leading) {
                                 Text("3-Day Forecast").font(.headline).padding(.leading)
@@ -90,48 +98,64 @@ struct ContentView: View {
                             }
                             .padding(.horizontal)
                         }
-                        if let weather = viewModel.weather {
-                            VStack {
-                                TextField("Add a note", text: $favoriteNote)
-                                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                                
-                                Button(action: {
-                                    fbManager.addFavorite(cityName: weather.name, note: favoriteNote)
-                                    favoriteNote = ""
-                                }) {
-                                    Text("Save to Firebase Favorites")
-                                }
-                                // Disable button if not authenticated to prevent the error
-                                .disabled(fbManager.userId == nil)
-                                
-                                if fbManager.userId == nil {
-                                    Text("Connecting to Firebase...")
-                                        .font(.caption)
-                                        .foregroundColor(.gray)
-                                }
-                            }
-                        }
                         
-                        // 5. Assignment 8: Real-time Favorites List
-                        VStack(alignment: .leading) {
-                            HStack {
-                                Text("Cloud Favorites").font(.title2).bold()
-                                Spacer()
-                                if fbManager.favorites.isEmpty {
-                                    Text("(Empty)").font(.caption).foregroundColor(.secondary)
-                                }
+                        // Assignment 8: Cloud Favorites List with Edit Button
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Cloud Favorites")
+                                .font(.title2).bold()
+                                .padding(.horizontal)
+                            
+                            if fbManager.favorites.isEmpty {
+                                Text("No favorites saved in the cloud.")
+                                    .font(.subheadline).foregroundColor(.secondary)
+                                    .padding(.horizontal)
                             }
-                            .padding(.horizontal)
 
                             ForEach(fbManager.favorites) { fav in
                                 HStack {
                                     VStack(alignment: .leading) {
-                                        Text(fav.cityName).font(.headline)
-                                        Text(fav.note).font(.subheadline).foregroundColor(.secondary)
+                                        HStack {
+                                            Text(fav.cityName).font(.headline)
+                                            // Show live weather for favorite if available
+                                            if let temp = fbManager.favoriteWeather[fav.id]?.main.temp {
+                                                Text("\(Int(temp))°").foregroundColor(.blue).bold()
+                                            }
+                                        }
+                                        
+                                        if editingFavoriteId == fav.id {
+                                            // EDIT MODE: Note is a TextField
+                                            TextField("Edit note", text: Binding(
+                                                get: { fav.note },
+                                                set: { fbManager.updateFavoriteNote(id: fav.id, newNote: $0) }
+                                            ))
+                                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                                            .font(.subheadline)
+                                        } else {
+                                            // VIEW MODE: Note is static text
+                                            Text(fav.note)
+                                                .font(.subheadline)
+                                                .foregroundColor(.secondary)
+                                        }
                                     }
+                                    
                                     Spacer()
+                                    
+                                    // Edit/Update Toggle Button
+                                    Button(action: {
+                                        if editingFavoriteId == fav.id {
+                                            editingFavoriteId = nil // Close edit mode (Save)
+                                        } else {
+                                            editingFavoriteId = fav.id // Open edit mode
+                                        }
+                                    }) {
+                                        Image(systemName: editingFavoriteId == fav.id ? "checkmark.circle.fill" : "pencil.circle")
+                                            .font(.title3)
+                                            .foregroundColor(editingFavoriteId == fav.id ? .green : .blue)
+                                    }
+
+                                    // Delete Button
                                     Button(action: { fbManager.deleteFavorite(id: fav.id) }) {
-                                        Image(systemName: "trash").foregroundColor(.red)
+                                        Image(systemName: "trash").font(.title3).foregroundColor(.red)
                                     }
                                 }
                                 .padding()
@@ -140,7 +164,7 @@ struct ContentView: View {
                             }
                         }
                         .padding(.top)
-                        
+
                         if let error = viewModel.errorMessage {
                             Text(error).font(.callout).foregroundColor(.red).padding()
                         }
@@ -149,7 +173,15 @@ struct ContentView: View {
                 }
             }
             .navigationTitle("Weather Cloud")
-            .onAppear { viewModel.checkInitialCache() }
+            .onAppear {
+                viewModel.checkInitialCache()
+                // Fetch weather for list items when view appears
+                fbManager.fetchWeatherForFavorites(weatherManager: viewModel.weatherManager, unit: viewModel.unit)
+            }
+            // Update weather if favorite list changes
+            .onChange(of: fbManager.favorites.count) { _ in
+                fbManager.fetchWeatherForFavorites(weatherManager: viewModel.weatherManager, unit: viewModel.unit)
+            }
         }
     }
 }

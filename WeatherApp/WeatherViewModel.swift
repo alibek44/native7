@@ -9,8 +9,7 @@ class WeatherViewModel: ObservableObject {
     @Published var city: String = ""
     @Published var unit: String = "metric"
 
-    private let weatherManager = WeatherManager()
-
+    let weatherManager = WeatherManager()
     func fetchAllData() {
         guard !city.isEmpty else { return }
         
