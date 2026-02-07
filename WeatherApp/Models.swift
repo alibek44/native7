@@ -1,11 +1,21 @@
 import Foundation
 
+// Assignment 8 Requirement: id, name, createdAt, createdBy (uid) [cite: 25]
+struct FavoriteCity: Identifiable, Codable {
+    var id: String
+    var cityName: String
+    var note: String
+    var createdAt: Double
+    var createdBy: String
+}
+
 struct WeatherResponse: Codable {
     let name: String
     let sys: Sys
     let main: Main
     let weather: [Weather]
     let wind: Wind
+    var lastUpdated: Date?
 }
 
 struct ForecastAPIResponse: Codable {
@@ -13,14 +23,13 @@ struct ForecastAPIResponse: Codable {
 }
 
 struct ForecastResponse: Codable {
-    let dt: Int // Essential for the SwiftUI ForEach ID
+    let dt: Int
     let main: Main
     let weather: [Weather]
     let wind: Wind
     let dt_txt: String
 }
 
-// Shared Structs
 struct Main: Codable {
     let temp: Double
     let humidity: Int

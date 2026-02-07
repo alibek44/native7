@@ -1,10 +1,15 @@
-import SwiftUI  // Ensure SwiftUI is imported
+import SwiftUI
+import FirebaseCore 
 
 @main
 struct WeatherApp: App {
+    init() {
+        FirebaseApp.configure()
+    }
+    
     var body: some Scene {
         WindowGroup {
-            ContentView() // Entry point to your app
+            ContentView()
         }
     }
 }
